@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chiến Lược Phân Luồng Giáo Trình Tương Tác</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Chosen Palette: Warm Neutrals -->
+    <!-- Application Structure Plan: Ứng dụng được thiết kế theo cấu trúc dashboard tương tác. Phía trên là thanh điều hướng gồm các nút bấm đại diện cho 6 nhóm đối tượng mục tiêu. Khi người dùng nhấp vào một nhóm, khu vực nội dung chính bên dưới sẽ tự động cập nhật và hiển thị chi tiết chiến lược dành riêng cho nhóm đó. Cấu trúc này (Lọc và Hiển thị) được chọn vì nó cho phép người dùng tập trung vào từng đối tượng một, dễ dàng so sánh và khám phá thông tin mà không bị quá tải, đặc biệt hiệu quả trên các thiết bị di động. Luồng tương tác đơn giản, trực quan, đi thẳng vào nhu cầu của người dùng là khám phá chiến lược cho từng phân khúc cụ thể. -->
+    <!-- Visualization & Content Choices: Dữ liệu trong báo cáo hoàn toàn là định tính và có cấu trúc, do đó việc sử dụng biểu đồ (chart) truyền thống là không phù hợp và không mang lại giá trị. Thay vào đó, "trực quan hóa" được thực hiện thông qua kiến trúc thông tin: sử dụng các thẻ (cards) được thiết kế rõ ràng để phân tách từng phần thông tin (Vấn đề, Giải pháp, Định hướng). Các biểu tượng (icon) và màu sắc được sử dụng để củng cố các khái niệm cốt lõi như "Bóng tối" (vấn đề) và "Ánh sáng" (giải pháp), giúp người dùng nắm bắt ý tưởng nhanh hơn. Lựa chọn này ưu tiên sự rõ ràng và dễ hiểu của thông tin, phù hợp với mục tiêu chính của ứng dụng. Chart.js được tải nhưng không sử dụng để tránh tạo ra các biểu đồ vô nghĩa. -->
+    <!-- CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #FDFBF8;
+            color: #3D352E;
+        }
+        .nav-button {
+            transition: all 0.3s ease;
+            border-bottom: 2px solid transparent;
+        }
+        .nav-button.active {
+            border-bottom-color: #D97706; /* amber-600 */
+            color: #D97706;
+            font-weight: 600;
+        }
+        .content-card {
+            background-color: #FFFFFF;
+            border: 1px solid #F3EFEA;
+            border-radius: 0.75rem;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -2px rgba(0, 0, 0, 0.05);
+            transition: opacity 0.5s ease-in-out;
+        }
+        .fade-in {
+            animation: fadeIn 0.5s ease-in-out;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+    </style>
+</head>
+<body>
+    <div class="container mx-auto p-4 md:p-8 max-w-7xl">
+        <header class="text-center mb-8">
+            <h1 class="text-3xl md:text-4xl font-bold text-amber-800">Bảng Phân Tích Chiến Lược Phân Luồng Giáo Trình</h1>
+            <p class="mt-2 text-lg text-gray-600">Khám phá định hướng phát triển nội dung cho từng nhóm đối tượng mục tiêu.</p>
+        </header>
+
+        <nav class="mb-8 overflow-x-auto pb-2">
+            <div id="navigation" class="flex items-center justify-center space-x-2 md:space-x-6 border-b border-gray-200">
+            </div>
+        </nav>
+
+        <main id="content-container">
+        </main>
+
+    </div>
+
+    <script>
+        const curriculumData = [
+            {
+                id: 1,
+                audience: "Học sinh Cấp 2, 3",
+                problem: "Áp lực học tập, thi cử; mất định hướng tương lai; khủng hoảng tuổi dậy thì; khó khăn trong giao tiếp với gia đình.",
+                solution: "Tìm ra đam mê, định hướng nghề nghiệp; xây dựng sự tự tin, nhân cách tốt; cân bằng học tập và cuộc sống; hòa hợp với gia đình.",
+                strategy: "Dùng ngôn ngữ teen, game hóa, hoạt động tương tác, ví dụ về thần tượng, mạng xã hội. Trọng tâm: **Định hướng & Xây dựng sự tự tin.**"
+            },
+            {
+                id: 2,
+                audience: "Lãnh đạo Doanh nghiệp",
+                problem: "Stress, áp lực tăng trưởng; khó khăn trong quản lý nhân sự, xây dựng văn hóa doanh nghiệp; mất cân bằng công việc - cuộc sống.",
+                solution: "Lãnh đạo bằng sự minh triết; xây dựng tổ chức hạnh phúc, phát triển bền vững; kiến tạo đội ngũ kế thừa; tìm lại sự an vui, cân bằng.",
+                strategy: "Dùng case study kinh doanh, thuật ngữ quản trị. Trọng tâm: **Lãnh đạo & Xây dựng Văn hóa Doanh nghiệp.**"
+            },
+            {
+                id: 3,
+                audience: "CCVC Đang công tác",
+                problem: "Áp lực công việc, trách nhiệm; môi trường làm việc đặc thù, sợ sai phạm; nguy cơ trì trệ, thiếu động lực đổi mới.",
+                solution: "Tìm lại lý tưởng phụng sự; nâng cao năng lực tham mưu, quản lý; xây dựng sự liêm chính, vững vàng; cân bằng cuộc sống.",
+                strategy: "Dùng ví dụ thực tiễn trong quản lý nhà nước, thảo luận tình huống chính sách. Trọng tâm: **Phụng sự & Liêm chính.**"
+            },
+            {
+                id: 4,
+                audience: "CCVC Đã nghỉ việc (do tinh gọn)",
+                problem: "Sốc tâm lý, hụt hẫng, mất phương hướng; khủng hoảng nhận dạng, giá trị bản thân; lo lắng về tài chính, tương lai.",
+                solution: "Vượt qua khủng hoảng, ổn định tâm lý; tái định vị giá trị, năng lực bản thân; tìm kiếm cơ hội nghề nghiệp mới; kiến tạo cuộc sống mới chủ động.",
+                strategy: "Workshop tái định vị, bài tập khám phá năng lực cốt lõi, xây dựng lộ trình chuyển đổi. Trọng tâm: **Chuyển đổi & Tái định vị.**"
+            },
+            {
+                id: 5,
+                audience: "Người cao tuổi (Sau 60)",
+                problem: "Cảm giác cô đơn, bị lãng quên; tự ti, cảm thấy không còn giá trị; lo lắng về sức khỏe; thiếu kết nối xã hội.",
+                solution: "Tìm lại niềm vui sống, sự kết nối; khẳng định vai trò, giá trị mới; sống vui, sống khỏe, sống có ích; trở thành điểm tựa cho con cháu.",
+                strategy: "Hoạt động nhẹ nhàng (trà đàm), chia sẻ kinh nghiệm, thành lập CLB, lớp học 'chuyển giao thế hệ'. Trọng tâm: **Kết nối & Tìm lại ý nghĩa.**"
+            },
+            {
+                id: 6,
+                audience: "Giáo viên Mầm non, Tiểu học",
+                problem: "Kiệt sức cảm xúc; áp lực từ nhiều phía (phụ huynh, nhà trường); gánh nặng 'thân giáo'; khó khăn trong giao tiếp.",
+                solution: "Tìm lại sự an vui, kiên nhẫn trong công việc; làm chủ cảm xúc để 'thân giáo' hiệu quả; xây dựng lớp học hạnh phúc; hợp tác hiệu quả với phụ huynh.",
+                strategy: "Workshop quản lý cảm xúc, thực hành chánh niệm, đóng vai xử lý tình huống với phụ huynh. Trọng tâm: **Thân giáo & Kiến tạo Môi trường.**"
+            }
+        ];
+
+        const navigationContainer = document.getElementById('navigation');
+        const contentContainer = document.getElementById('content-container');
+
+        function initializeApp() {
+            curriculumData.forEach(item => {
+                const button = document.createElement('button');
+                button.className = 'nav-button px-3 py-4 text-sm md:text-base text-gray-500 whitespace-nowrap';
+                button.textContent = item.audience;
+                button.dataset.id = item.id;
+                navigationContainer.appendChild(button);
+
+                const contentDiv = document.createElement('div');
+                contentDiv.id = `content-${item.id}`;
+                contentDiv.className = 'hidden';
+                contentDiv.innerHTML = `
+                    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 fade-in">
+                        <div class="content-card p-6">
+                            <div class="flex items-center mb-4">
+                                <span class="text-3xl mr-3">🌑</span>
+                                <h3 class="text-xl font-semibold text-gray-700">Vấn đề & Nhu cầu ("Bóng tối")</h3>
+                            </div>
+                            <p class="text-gray-600 leading-relaxed">${item.problem}</p>
+                        </div>
+                        <div class="content-card p-6">
+                            <div class="flex items-center mb-4">
+                                <span class="text-3xl mr-3">☀️</span>
+                                <h3 class="text-xl font-semibold text-amber-700">Mục tiêu & Giải pháp ("Ánh sáng")</h3>
+                            </div>
+                            <p class="text-gray-600 leading-relaxed">${item.solution}</p>
+                        </div>
+                        <div class="content-card p-6">
+                            <div class="flex items-center mb-4">
+                                <span class="text-3xl mr-3">🎯</span>
+                                <h3 class="text-xl font-semibold text-sky-700">Định hướng & Hoạt động</h3>
+                            </div>
+                            <p class="text-gray-600 leading-relaxed">${item.strategy}</p>
+                        </div>
+                    </div>
+                `;
+                contentContainer.appendChild(contentDiv);
+            });
+
+            navigationContainer.addEventListener('click', (e) => {
+                if (e.target.tagName === 'BUTTON') {
+                    const id = e.target.dataset.id;
+                    updateView(id);
+                }
+            });
+
+            updateView(1);
+        }
+
+        function updateView(id) {
+            const buttons = navigationContainer.querySelectorAll('.nav-button');
+            buttons.forEach(button => {
+                if (button.dataset.id == id) {
+                    button.classList.add('active');
+                } else {
+                    button.classList.remove('active');
+                }
+            });
+
+            const contents = contentContainer.querySelectorAll('div[id^="content-"]');
+            contents.forEach(content => {
+                if (content.id === `content-${id}`) {
+                    content.classList.remove('hidden');
+                } else {
+                    content.classList.add('hidden');
+                }
+            });
+        }
+
+        document.addEventListener('DOMContentLoaded', initializeApp);
+    </script>
+</body>
+</html>
+
+
